@@ -256,19 +256,10 @@ func cmdDel(args *skel.CmdArgs) error {
 
 	sm := sriov.NewSriovManager()
 
-	logging.Debug("Reset VF configuration",
-		"func", "cmdDel",
-		"netConf.DeviceID", netConf.DeviceID)
-	/* ResetVFConfig resets a VF administratively. We must run ResetVFConfig
-	   before ReleaseVF because some drivers will error out if we try to
-	   reset netdev VF with trust off. So, reset VF MAC address via PF first.
-	*/
-	if err := sm.ResetVFConfig(netConf); err != nil {
-		return fmt.Errorf("cmdDel() error reseting VF: %q", err)
-	}
+	var netns ns.NetNS
 
 	if !netConf.DPDKMode {
-		netns, err := ns.GetNS(args.Netns)
+		netns, err = ns.GetNS(args.Netns)
 		if err != nil {
 			// according to:
 			// https://github.com/kubernetes/kubernetes/issues/43014#issuecomment-287164444
@@ -287,7 +278,20 @@ func cmdDel(args *skel.CmdArgs) error {
 			return fmt.Errorf("failed to open netns %s: %q", netns, err)
 		}
 		defer netns.Close()
+	}
 
+	logging.Debug("Reset VF configuration",
+		"func", "cmdDel",
+		"netConf.DeviceID", netConf.DeviceID)
+	/* ResetVFConfig resets a VF administratively. We must run ResetVFConfig
+	   before ReleaseVF because some drivers will error out if we try to
+	   reset netdev VF with trust off. So, reset VF MAC address via PF first.
+	*/
+	if err := sm.ResetVFConfig(netConf); err != nil {
+		return fmt.Errorf("cmdDel() error reseting VF: %q", err)
+	}
+
+	if !netConf.DPDKMode {
 		logging.Debug("Release the VF",
 			"func", "cmdDel",
 			"netConf.DeviceID", netConf.DeviceID,
