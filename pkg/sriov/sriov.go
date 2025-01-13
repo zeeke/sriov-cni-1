@@ -58,7 +58,7 @@ type sriovManager struct {
 // NewSriovManager returns an instance of SriovManager
 func NewSriovManager() Manager {
 	return &sriovManager{
-		nLink: &utils.MyNetlink{},
+		nLink: utils.GetNetlinkManager(),
 		utils: &pciUtilsImpl{},
 	}
 }
@@ -347,7 +347,7 @@ func (s *sriovManager) FillOriginalVfInfo(conf *sriovtypes.NetConf) error {
 	// Save current the VF state before modifying it
 	vfState := getVfInfo(pfLink, conf.VFID)
 	if vfState == nil {
-		return fmt.Errorf("failed to find vf %d", conf.VFID)
+		return fmt.Errorf("failed to find vf %d in PF %s", conf.VFID, pfLink.Attrs().Name)
 	}
 	conf.OrigVfState.FillFromVfInfo(vfState)
 

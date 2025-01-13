@@ -7,6 +7,7 @@
 package utils
 
 import (
+	"net"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -138,19 +139,122 @@ func RemoveTmpSysFs() error {
 	return os.RemoveAll(ts.dirRoot)
 }
 
-// FakeLink is a dummy netlink struct used during testing
-type FakeLink struct {
-	netlink.LinkAttrs
+func MockNetlinkLib() (func(), error) {
+	var err error 
+	oldnetlinkLib := netLinkLib 
+	netLinkLib, err = NewDummyPF("enp175s0f1", []string{"enp175s6", "enp175s7"})
+
+	return func() {
+		netLinkLib = oldnetlinkLib
+	}, err
 }
 
-// type FakeLink struct {
-// 	linkAtrrs *netlink.LinkAttrs
-// }
-
-func (l *FakeLink) Attrs() *netlink.LinkAttrs {
-	return &l.LinkAttrs
+// dummyLinksLib creates dummy interfaces for Physical and Virtual function, interceptin calls to netlink library
+type dummyLinksLib struct {
+	pf netlink.Link
+	vfs map[int]*netlink.Dummy
 }
 
-func (l *FakeLink) Type() string {
-	return "FakeLink"
+func NewDummyPF(pfName string, vfNames []string) (*dummyLinksLib, error) {
+	ret := &dummyLinksLib{
+		pf: &netlink.Dummy{
+			LinkAttrs: netlink.LinkAttrs{
+				Name:  pfName,
+		
+				Vfs: []netlink.VfInfo{{
+					ID:  0,
+					Mac: mustParseMAC("ab:cd:ef:ab:cd:ef"),
+				}},
+			},
+		},
+		vfs: map[int]*netlink.Dummy{},
+	}
+
+	for i, vfName := range vfNames {
+		ret.vfs[i] = &netlink.Dummy{
+				LinkAttrs: netlink.LinkAttrs{
+					Name:  vfName,
+				},
+			}
+
+	}
+	
+	return ret, nil
+}
+
+func (n *dummyLinksLib) LinkByName(name string) (netlink.Link, error) {
+	if name == n.pf.Attrs().Name {
+		return n.pf, nil
+	}
+	return netlink.LinkByName(name)
+}
+
+func (n *dummyLinksLib) LinkSetVfVlanQosProto(link netlink.Link, vfIndex int, vlan int, vlanQos int, vlanProto int) error {
+	//panic("not implemented")
+	//n.vfs[vfIndex].VlanId = vlan
+	//n.vfs[vfIndex].VlanProtocol = netlink.VlanProtocol(vlanProto)
+	return netlink.LinkModify(n.vfs[vfIndex])
+}
+
+func (n *dummyLinksLib) LinkSetVfHardwareAddr(pfLink netlink.Link, vfIndex int, hwaddr net.HardwareAddr) error {
+	pfLink.Attrs().Vfs[vfIndex].Mac = hwaddr
+	return nil
+}
+
+func (n *dummyLinksLib) LinkSetHardwareAddr(link netlink.Link, hwaddr net.HardwareAddr) error {
+	return netlink.LinkSetHardwareAddr(link, hwaddr)
+}
+
+func (n *dummyLinksLib) LinkSetUp(link netlink.Link) error {
+	return netlink.LinkSetUp(link)
+}
+
+func (n *dummyLinksLib) LinkSetDown(link netlink.Link) error {
+	return netlink.LinkSetDown(link)
+}
+
+func (n *dummyLinksLib) LinkSetNsFd(link netlink.Link, nsFd int) error {
+	return netlink.LinkSetNsFd(link, nsFd)
+}
+
+func (n *dummyLinksLib) LinkSetName(link netlink.Link, name string) error {
+	return netlink.LinkSetName(link, name)
+}
+
+func (n *dummyLinksLib) LinkSetVfRate(pfLink netlink.Link, vfIndex int, minRate int, maxRate int) error {
+	pfLink.Attrs().Vfs[vfIndex].MaxTxRate = uint32(maxRate)
+	pfLink.Attrs().Vfs[vfIndex].MinTxRate = uint32(minRate)
+	return nil
+}
+
+func (n *dummyLinksLib) LinkSetVfSpoofchk(pfLink netlink.Link, vfIndex int, spoofChk bool) error {
+	pfLink.Attrs().Vfs[vfIndex].Spoofchk = spoofChk
+	return nil
+}
+
+func (n *dummyLinksLib) LinkSetVfTrust(pfLink netlink.Link, vfIndex int, trust bool) error {
+	if trust {
+		pfLink.Attrs().Vfs[vfIndex].Trust = 1
+	} else {
+		pfLink.Attrs().Vfs[vfIndex].Trust = 0
+	}
+	
+	return nil
+}
+
+func (n *dummyLinksLib) LinkSetVfState(pfLink netlink.Link, vfIndex int, state uint32) error {
+	pfLink.Attrs().Vfs[vfIndex].LinkState = state
+	return nil
+}
+
+func (n *dummyLinksLib) LinkDelAltName(link netlink.Link, name string) error {
+	return netlink.LinkDelAltName(link, name)
+}
+
+func mustParseMAC(x string) net.HardwareAddr {
+	ret, err := net.ParseMAC(x)
+	if err != nil {
+		panic(err)
+	}
+	return ret
 }

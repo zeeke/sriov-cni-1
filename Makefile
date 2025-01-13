@@ -93,6 +93,13 @@ image: ; $(info Building Docker image...) @ ## Build SR-IOV CNI docker image
 test-image: image
 	$Q $(IMAGEDIR)/image_test.sh $(IMAGE_BUILDER) $(TAG)
 
+bin/bash_unit:
+	curl -L https://github.com/pgrange/bash_unit/raw/refs/tags/v2.3.2/bash_unit > bin/bash_unit
+	chmod a+x bin/bash_unit
+
+test-integration: bin/bash_unit
+	./bin/bash_unit test/integration/test_*.sh
+
 # Misc
 .PHONY: deps-update
 deps-update: ; $(info  Updating dependencies...) @ ## Update dependencies

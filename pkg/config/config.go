@@ -10,6 +10,7 @@ import (
 	"github.com/k8snetworkplumbingwg/sriov-cni/pkg/logging"
 	sriovtypes "github.com/k8snetworkplumbingwg/sriov-cni/pkg/types"
 	"github.com/k8snetworkplumbingwg/sriov-cni/pkg/utils"
+	"golang.org/x/sys/unix"
 )
 
 var (
@@ -193,3 +194,20 @@ func GetMacAddressForResult(netConf *sriovtypes.NetConf) string {
 
 	return ""
 }
+
+
+
+// Acquire acquires a lock on a file for the duration of the process. This method
+// is reentrant.
+func Acquire(path string) error {
+	fd, err := unix.Open(path, unix.O_CREAT|unix.O_RDWR|unix.O_CLOEXEC, 0600)
+	if err != nil {
+		return err
+	}
+
+	// We don't need to close the fd since we should hold
+	// it until the process exits.
+
+	return unix.Flock(fd, unix.LOCK_EX)
+}
+
