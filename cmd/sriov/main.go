@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"os"
 	"runtime"
 	"strings"
 	"time"
@@ -318,6 +319,16 @@ func cmdCheck(_ *skel.CmdArgs) error {
 }
 
 func main() {
+
+	// TODO: put in a main wrapper
+	if os.Getenv("SRIOV_MOCK_ENVIRONMENT") == "TRUE" {
+		err := utils.CreateTmpSysFs()
+		if err != nil {
+			panic(err)
+		}
+		utils.MockDevices()
+	}
+
 	cniFuncs := skel.CNIFuncs{
 		Add:   cmdAdd,
 		Del:   cmdDel,

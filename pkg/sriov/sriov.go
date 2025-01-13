@@ -58,7 +58,7 @@ type sriovManager struct {
 // NewSriovManager returns an instance of SriovManager
 func NewSriovManager() Manager {
 	return &sriovManager{
-		nLink: &utils.MyNetlink{},
+		nLink: utils.GetNetlinkManager(),
 		utils: &pciUtilsImpl{},
 	}
 }
@@ -240,6 +240,9 @@ func (s *sriovManager) ReleaseVF(conf *sriovtypes.NetConf, podifName string, net
 
 func getVfInfo(link netlink.Link, id int) *netlink.VfInfo {
 	attrs := link.Attrs()
+	fmt.Printf("%+v\n", attrs)
+	fmt.Println(id)
+
 	for _, vf := range attrs.Vfs {
 		if vf.ID == id {
 			return &vf
@@ -347,7 +350,7 @@ func (s *sriovManager) FillOriginalVfInfo(conf *sriovtypes.NetConf) error {
 	// Save current the VF state before modifying it
 	vfState := getVfInfo(pfLink, conf.VFID)
 	if vfState == nil {
-		return fmt.Errorf("failed to find vf %d", conf.VFID)
+		return fmt.Errorf("failed to find vf %d in PF %s", conf.VFID, pfLink.Attrs().Name)
 	}
 	conf.OrigVfState.FillFromVfInfo(vfState)
 
