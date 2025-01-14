@@ -4,10 +4,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/k8snetworkplumbingwg/sriov-cni/pkg/logging"
+	"golang.org/x/sys/unix"
 )
+
+const pciLockAcquireTimeout = 60 * time.Second
 
 type PCIAllocation interface {
 	SaveAllocatedPCI(string, string) error
@@ -25,6 +29,38 @@ func NewPCIAllocator(dataDir string) *PCIAllocator {
 	return &PCIAllocator{dataDir: filepath.Join(dataDir, "pci")}
 }
 
+// Lock gets an exclusive lock on the given PCI address, ensuring there is no other process configuring / or de-configuring the same device.
+func (p *PCIAllocator) Lock(pciAddress string) error {
+
+	if err := os.MkdirAll(p.dataDir, 0600); err != nil {
+		return fmt.Errorf("failed to create the sriov data directory(%q): %v", p.dataDir, err)
+	}
+
+	path := filepath.Join(p.dataDir, pciAddress)
+
+	// unix.O_CREAT - Create the file if it doesn't exist
+	// unix.O_RDWR - Open the file for read/write
+	// unix.O_CLOEXEC - Automatically close the file on exit. This is useful to keep the flock until the process exits
+	fd, err := unix.Open(path, unix.O_CREAT|unix.O_RDWR|unix.O_CLOEXEC, 0600)
+	if err != nil {
+		return fmt.Errorf("failed to open PCI file [%s] for locking: %w", path, err)
+	}
+
+	errCh := make(chan error)
+	go func() {
+		// unix.LOCK_EX - Exclusive lock
+		errCh <- unix.Flock(fd, unix.LOCK_EX)
+	}()
+
+	select {
+	case err = <-errCh:
+		return err
+
+	case <-time.After(pciLockAcquireTimeout):
+		return fmt.Errorf("time out while waiting to acquire exclusive lock on [%s]", path)
+	}
+}
+
 // SaveAllocatedPCI creates a file with the pci address as a name and the network namespace as the content
 // return error if the file was not created
 func (p *PCIAllocator) SaveAllocatedPCI(pciAddress, ns string) error {
@@ -33,7 +69,13 @@ func (p *PCIAllocator) SaveAllocatedPCI(pciAddress, ns string) error {
 	}
 
 	path := filepath.Join(p.dataDir, pciAddress)
-	err := os.WriteFile(path, []byte(ns), 0600)
+
+	err := p.Lock(pciAddress)
+	if err != nil {
+		return fmt.Errorf("failed to acquire lock (%q): %v", path, err)
+	}
+
+	err = os.WriteFile(path, []byte(ns), 0600)
 	if err != nil {
 		return fmt.Errorf("failed to write used PCI address lock file in the path(%q): %v", path, err)
 	}
@@ -63,6 +105,11 @@ func (p *PCIAllocator) IsAllocated(pciAddress string) (bool, error) {
 		}
 
 		return false, fmt.Errorf("failed to check for pci address file for %s: %v", path, err)
+	}
+
+	err = p.Lock(pciAddress)
+	if err != nil {
+		return false, fmt.Errorf("failed to acquire lock while checking if PCI is already allocated (%q): %v", path, err)
 	}
 
 	dat, err := os.ReadFile(path)
