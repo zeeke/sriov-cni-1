@@ -230,6 +230,7 @@ func (n *dummyLinksLib) LinkSetNsFd(link netlink.Link, nsFd int) error {
 
 func (n *dummyLinksLib) LinkSetName(link netlink.Link, name string) error {
 	n.recordMethodCall("LinkSetName %s %s", link.Attrs().Name, name)
+	link.Attrs().Name = name
 	return netlink.LinkSetName(link, name)
 }
 

@@ -265,7 +265,11 @@ func CmdDel(args *skel.CmdArgs) error {
 	   before ReleaseVF because some drivers will error out if we try to
 	   reset netdev VF with trust off. So, reset VF MAC address via PF first.
 	*/
+	logging.Debug("Reset VF configuration",
+		"func", "cmdDel",
+		"netConf.DeviceID", netConf.DeviceID)
 	if err := sm.ResetVFConfig(netConf); err != nil {
+		fmt.Println(err)
 		return fmt.Errorf("cmdDel() error reseting VF: %q", err)
 	}
 
@@ -286,6 +290,11 @@ func CmdDel(args *skel.CmdArgs) error {
 		}
 		defer netns.Close()
 
+		logging.Debug("Release the VF",
+			"func", "cmdDel",
+			"netConf.DeviceID", netConf.DeviceID,
+			"args.Netns", args.Netns,
+			"args.IfName", args.IfName)
 		if err = sm.ReleaseVF(netConf, args.IfName, netns); err != nil {
 			return err
 		}

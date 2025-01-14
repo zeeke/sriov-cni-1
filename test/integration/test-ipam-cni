@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [[ -z "${IPAM_MOCK_SLEEP}" ]]; then
+if [[ -n "${IPAM_MOCK_SLEEP}" ]]; then
   sleep ${IPAM_MOCK_SLEEP}
 fi
 

@@ -12,7 +12,7 @@ import (
 
 func main() {
 
-	customCNIDir, ok :=os.LookupEnv("DEFAULT_CNI_DIR")
+	customCNIDir, ok := os.LookupEnv("DEFAULT_CNI_DIR")
 	if ok {
 		config.DefaultCNIDir = customCNIDir
 	}
@@ -26,7 +26,7 @@ func main() {
 		err := utils.RemoveTmpSysFs()
 		if err != nil {
 			panic(err)
-		}	
+		}
 	}()
 
 	cancel, err := utils.MockNetlinkLib(config.DefaultCNIDir)
