@@ -29,7 +29,7 @@ func main() {
 		}	
 	}()
 
-	cancel, err := utils.MockNetlinkLib()
+	cancel, err := utils.MockNetlinkLib(config.DefaultCNIDir)
 	if err != nil {
 		panic(err)
 	}

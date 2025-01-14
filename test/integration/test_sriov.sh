@@ -19,7 +19,6 @@ test_macaddress() {
   
   export DEFAULT_CNI_DIR=`mktemp -d`
   export CNI_CONTAINERID=container_1
-  export CNI_COMMAND=ADD
   export CNI_PATH=${here}
   export CNI_NETNS=/run/netns/container_1_netns
   export CNI_IFNAME=net1
@@ -38,6 +37,7 @@ test_macaddress() {
   }
 EOM
 
+  export CNI_COMMAND=ADD
   assert 'echo "$CNI_INPUT" | invoke_sriov_cni'
   assert 'ip netns exec container_1_netns ip link | grep -i 60:00:00:00:00:E1'
 
@@ -74,11 +74,12 @@ EOM
 
   export CNI_COMMAND=ADD
   assert 'echo "$CNI_INPUT" | invoke_sriov_cni'
-  assert 'ip netns exec container_1_netns ip link | grep -i "vlan 1234"'
+  assert_file_contains ${DEFAULT_CNI_DIR}/enp175s0f1.calls "LinkSetVfVlanQosProto enp175s0f1 0 1234 0 33024"
 
-  #export CNI_COMMAND=DEL
-  #assert 'echo "$CNI_INPUT" | invoke_sriov_cni'
-  #assert 'ip netns exec test_root_ns ip link show enp175s6'
+  export CNI_COMMAND=DEL
+  assert 'echo "$CNI_INPUT" | invoke_sriov_cni'
+  assert 'ip netns exec test_root_ns ip link show enp175s6'
+  assert_file_contains ${DEFAULT_CNI_DIR}/enp175s0f1.calls "LinkSetVfVlanQosProto enp175s0f1 0 0 0 33024"
 }
 
 test_multiple_invocations_on_same_vf() {
@@ -126,6 +127,14 @@ make_container() {
   podman kill ${container_name} >/dev/null 2>/dev/null
   podman rm -f ${container_name} >/dev/null 2>/dev/null
   assert "podman run -d --network ns:/run/netns/test_container_ns --name ${container_name} ${test_image} sleep inf"
+}
+
+assert_file_contains() {
+  file=$1
+  substr=$2
+  if ! grep -q $substr $file; then
+    fail "File [$file] does not contains [$substr], contents: \n `cat $file`"
+  fi
 }
 
 #cat <<EOF | go run cmd/sriov/main.go

@@ -7,6 +7,8 @@
 package utils
 
 import (
+	"fmt"
+	"log"
 	"net"
 	"os"
 	"path/filepath"
@@ -139,10 +141,10 @@ func RemoveTmpSysFs() error {
 	return os.RemoveAll(ts.dirRoot)
 }
 
-func MockNetlinkLib() (func(), error) {
-	var err error 
-	oldnetlinkLib := netLinkLib 
-	netLinkLib, err = NewDummyPF("enp175s0f1", []string{"enp175s6", "enp175s7"})
+func MockNetlinkLib(methodCallRecordingDir string) (func(), error) {
+	var err error
+	oldnetlinkLib := netLinkLib
+	netLinkLib, err = NewDummyPF(methodCallRecordingDir, "enp175s0f1", []string{"enp175s6", "enp175s7"})
 
 	return func() {
 		netLinkLib = oldnetlinkLib
@@ -151,16 +153,17 @@ func MockNetlinkLib() (func(), error) {
 
 // dummyLinksLib creates dummy interfaces for Physical and Virtual function, interceptin calls to netlink library
 type dummyLinksLib struct {
-	pf netlink.Link
-	vfs map[int]*netlink.Dummy
+	pf                           netlink.Link
+	vfs                          map[int]*netlink.Dummy
+	methodCallsRecordingFilePath string
 }
 
-func NewDummyPF(pfName string, vfNames []string) (*dummyLinksLib, error) {
+func NewDummyPF(recordDir, pfName string, vfNames []string) (*dummyLinksLib, error) {
 	ret := &dummyLinksLib{
 		pf: &netlink.Dummy{
 			LinkAttrs: netlink.LinkAttrs{
-				Name:  pfName,
-		
+				Name: pfName,
+
 				Vfs: []netlink.VfInfo{{
 					ID:  0,
 					Mac: mustParseMAC("ab:cd:ef:ab:cd:ef"),
@@ -172,17 +175,22 @@ func NewDummyPF(pfName string, vfNames []string) (*dummyLinksLib, error) {
 
 	for i, vfName := range vfNames {
 		ret.vfs[i] = &netlink.Dummy{
-				LinkAttrs: netlink.LinkAttrs{
-					Name:  vfName,
-				},
-			}
+			LinkAttrs: netlink.LinkAttrs{
+				Name: vfName,
+			},
+		}
 
 	}
+
+	ret.methodCallsRecordingFilePath = filepath.Join(recordDir, pfName+".calls")
 	
+	ret.recordMethodCall("---")
+
 	return ret, nil
 }
 
 func (n *dummyLinksLib) LinkByName(name string) (netlink.Link, error) {
+	n.recordMethodCall("LinkByName %s", name)
 	if name == n.pf.Attrs().Name {
 		return n.pf, nil
 	}
@@ -190,65 +198,86 @@ func (n *dummyLinksLib) LinkByName(name string) (netlink.Link, error) {
 }
 
 func (n *dummyLinksLib) LinkSetVfVlanQosProto(link netlink.Link, vfIndex int, vlan int, vlanQos int, vlanProto int) error {
-	//panic("not implemented")
-	//n.vfs[vfIndex].VlanId = vlan
-	//n.vfs[vfIndex].VlanProtocol = netlink.VlanProtocol(vlanProto)
-	return netlink.LinkModify(n.vfs[vfIndex])
+	n.recordMethodCall("LinkSetVfVlanQosProto %s %d %d %d %d", link.Attrs().Name, vfIndex, vlan, vlanQos, vlanProto)
+	return nil
 }
 
 func (n *dummyLinksLib) LinkSetVfHardwareAddr(pfLink netlink.Link, vfIndex int, hwaddr net.HardwareAddr) error {
+	n.recordMethodCall("LinkSetVfHardwareAddr %s %d %s", pfLink.Attrs().Name, vfIndex, hwaddr.String())
 	pfLink.Attrs().Vfs[vfIndex].Mac = hwaddr
 	return nil
 }
 
 func (n *dummyLinksLib) LinkSetHardwareAddr(link netlink.Link, hwaddr net.HardwareAddr) error {
+	n.recordMethodCall("LinkSetHardwareAddr %s %s", link.Attrs().Name, hwaddr.String())
 	return netlink.LinkSetHardwareAddr(link, hwaddr)
 }
 
 func (n *dummyLinksLib) LinkSetUp(link netlink.Link) error {
+	n.recordMethodCall("LinkSetUp %s", link.Attrs().Name)
 	return netlink.LinkSetUp(link)
 }
 
 func (n *dummyLinksLib) LinkSetDown(link netlink.Link) error {
+	n.recordMethodCall("LinkSetDown %s", link.Attrs().Name)
 	return netlink.LinkSetDown(link)
 }
 
 func (n *dummyLinksLib) LinkSetNsFd(link netlink.Link, nsFd int) error {
+	n.recordMethodCall("LinkSetNsFd %s %d", link.Attrs().Name, nsFd)
 	return netlink.LinkSetNsFd(link, nsFd)
 }
 
 func (n *dummyLinksLib) LinkSetName(link netlink.Link, name string) error {
+	n.recordMethodCall("LinkSetName %s %s", link.Attrs().Name, name)
 	return netlink.LinkSetName(link, name)
 }
 
 func (n *dummyLinksLib) LinkSetVfRate(pfLink netlink.Link, vfIndex int, minRate int, maxRate int) error {
+	n.recordMethodCall("LinkSetVfRate %s %d %d %d", pfLink.Attrs().Name, vfIndex, minRate, maxRate)
 	pfLink.Attrs().Vfs[vfIndex].MaxTxRate = uint32(maxRate)
 	pfLink.Attrs().Vfs[vfIndex].MinTxRate = uint32(minRate)
 	return nil
 }
 
 func (n *dummyLinksLib) LinkSetVfSpoofchk(pfLink netlink.Link, vfIndex int, spoofChk bool) error {
+	n.recordMethodCall("LinkSetVfRate %s %d %t", pfLink.Attrs().Name, vfIndex, spoofChk)
 	pfLink.Attrs().Vfs[vfIndex].Spoofchk = spoofChk
 	return nil
 }
 
 func (n *dummyLinksLib) LinkSetVfTrust(pfLink netlink.Link, vfIndex int, trust bool) error {
+	n.recordMethodCall("LinkSetVfTrust %s %d %d", pfLink.Attrs().Name, vfIndex, trust)
 	if trust {
 		pfLink.Attrs().Vfs[vfIndex].Trust = 1
 	} else {
 		pfLink.Attrs().Vfs[vfIndex].Trust = 0
 	}
-	
+
 	return nil
 }
 
 func (n *dummyLinksLib) LinkSetVfState(pfLink netlink.Link, vfIndex int, state uint32) error {
+	n.recordMethodCall("LinkSetVfState %s %d %d", pfLink.Attrs().Name, vfIndex, state)
 	pfLink.Attrs().Vfs[vfIndex].LinkState = state
 	return nil
 }
 
 func (n *dummyLinksLib) LinkDelAltName(link netlink.Link, name string) error {
+	n.recordMethodCall("LinkDelAltName %s %s", link.Attrs().Name, name)
 	return netlink.LinkDelAltName(link, name)
+}
+
+func (n *dummyLinksLib) recordMethodCall(format string, a ...any) {
+	f, err := os.OpenFile(n.methodCallsRecordingFilePath,
+		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Println(err)
+	}
+	defer f.Close()
+	if _, err := f.WriteString(fmt.Sprintf(format+"\n", a...)); err != nil {
+		log.Println(err)
+	}
 }
 
 func mustParseMAC(x string) net.HardwareAddr {
