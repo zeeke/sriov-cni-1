@@ -53,7 +53,7 @@ type sriovManager struct {
 // NewSriovManager returns an instance of SriovManager
 func NewSriovManager() Manager {
 	return &sriovManager{
-		nLink: &utils.MyNetlink{},
+		nLink: utils.GetNetlinkManager(),
 		utils: &pciUtilsImpl{},
 	}
 }
