@@ -16,6 +16,7 @@ type pciUtils interface {
 	GetVFLinkNamesFromVFID(pfName string, vfID int) ([]string, error)
 	GetPciAddress(ifName string, vf int) (string, error)
 	EnableArpAndNdiscNotify(ifName string) error
+	EnableOptimisticDad(ifName string) error
 }
 
 type pciUtilsImpl struct{}
@@ -36,6 +37,10 @@ func (p *pciUtilsImpl) EnableArpAndNdiscNotify(ifName string) error {
 	return utils.EnableArpAndNdiscNotify(ifName)
 }
 
+func (p *pciUtilsImpl) EnableOptimisticDad(ifName string) error {
+	return utils.EnableOptimisticDad(ifName)
+}
+
 // Manager provides interface invoke sriov nic related operations
 type Manager interface {
 	SetupVF(conf *sriovtypes.NetConf, podifName string, netns ns.NetNS) error
@@ -53,7 +58,7 @@ type sriovManager struct {
 // NewSriovManager returns an instance of SriovManager
 func NewSriovManager() Manager {
 	return &sriovManager{
-		nLink: &utils.MyNetlink{},
+		nLink: utils.GetNetlinkManager(),
 		utils: &pciUtilsImpl{},
 	}
 }
@@ -147,8 +152,12 @@ func (s *sriovManager) SetupVF(conf *sriovtypes.NetConf, podifName string, netns
 			}
 		}
 
-		// 8. Bring IF up in Pod netns
-		logging.Debug("8. Bring IF up in Pod netns",
+		logging.Debug("8. Enable Optimistic DAD for IPv6 addresses", "func", "SetupVF",
+			"linkObj", linkObj)
+		_ = s.utils.EnableOptimisticDad(podifName)
+
+		// 9. Bring IF up in Pod netns
+		logging.Debug("9. Bring IF up in Pod netns",
 			"func", "SetupVF",
 			"linkObj", linkObj)
 		if err := s.nLink.LinkSetUp(linkObj); err != nil {

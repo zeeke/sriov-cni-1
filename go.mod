@@ -1,6 +1,6 @@
 module github.com/k8snetworkplumbingwg/sriov-cni
 
-go 1.21
+go 1.22.4
 
 require (
 	github.com/containernetworking/cni v1.2.0-rc0.0.20240317203738-a448e71e9867
@@ -9,7 +9,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.16.0
 	github.com/onsi/gomega v1.31.1
 	github.com/stretchr/testify v1.8.2
-	github.com/vishvananda/netlink v1.2.1-beta.2
+	github.com/vishvananda/netlink v1.2.1-beta.2.0.20240221172127-ec7bcb248e94
 	golang.org/x/net v0.33.0
 	golang.org/x/sys v0.28.0
 )

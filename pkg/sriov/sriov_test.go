@@ -71,6 +71,7 @@ var _ = Describe("Sriov", func() {
 			mocked.On("LinkSetNsFd", fakeLink, mock.AnythingOfType("int")).Return(nil)
 			mocked.On("LinkSetUp", fakeLink).Return(nil)
 			mockedPciUtils.On("EnableArpAndNdiscNotify", mock.AnythingOfType("string")).Return(nil)
+			mockedPciUtils.On("EnableOptimisticDad", mock.AnythingOfType("string")).Return(nil)
 			sm := sriovManager{nLink: mocked, utils: mockedPciUtils}
 			err = sm.SetupVF(netconf, podifName, targetNetNS)
 			Expect(err).NotTo(HaveOccurred())
@@ -122,6 +123,7 @@ var _ = Describe("Sriov", func() {
 			mocked.On("LinkSetNsFd", net2Link, mock.AnythingOfType("int")).Return(nil)
 			mocked.On("LinkSetUp", net2Link).Return(nil)
 			mockedPciUtils.On("EnableArpAndNdiscNotify", mock.AnythingOfType("string")).Return(nil)
+			mockedPciUtils.On("EnableOptimisticDad", mock.AnythingOfType("string")).Return(nil)
 			sm := sriovManager{nLink: mocked, utils: mockedPciUtils}
 			err = sm.SetupVF(netconf, podifName, targetNetNS)
 			Expect(err).NotTo(HaveOccurred())
@@ -175,6 +177,7 @@ var _ = Describe("Sriov", func() {
 			mocked.On("LinkSetNsFd", net2Link, mock.AnythingOfType("int")).Return(nil)
 			mocked.On("LinkSetUp", net2Link).Return(nil)
 			mockedPciUtils.On("EnableArpAndNdiscNotify", mock.AnythingOfType("string")).Return(nil)
+			mockedPciUtils.On("EnableOptimisticDad", mock.AnythingOfType("string")).Return(nil)
 			sm := sriovManager{nLink: mocked, utils: mockedPciUtils}
 			err = sm.SetupVF(netconf, podifName, targetNetNS)
 			Expect(err).NotTo(HaveOccurred())
@@ -229,6 +232,7 @@ var _ = Describe("Sriov", func() {
 			mocked.On("LinkSetNsFd", net2Link, mock.AnythingOfType("int")).Return(nil)
 			mocked.On("LinkSetUp", net2Link).Return(nil)
 			mockedPciUtils.On("EnableArpAndNdiscNotify", mock.AnythingOfType("string")).Return(nil)
+			mockedPciUtils.On("EnableOptimisticDad", mock.AnythingOfType("string")).Return(nil)
 			sm := sriovManager{nLink: mocked, utils: mockedPciUtils}
 			err = sm.SetupVF(netconf, podifName, targetNetNS)
 			Expect(err).NotTo(HaveOccurred())
